@@ -4,15 +4,19 @@
 
 import argparse
 import os
+import re
 import subprocess
 import time
+from collections import namedtuple
 
 from pprint import pprint
+
+_version = 0.1
 
 parser = argparse.ArgumentParser()
 parser.add_argument('archive_file', help='path to the archive file')
 
-_version = 0.1
+FileAttributes = namedtuple('FileAttributes', ['size', 'is_symlink'])
 
 
 def insert_into_tree(tree, branches, value):
@@ -37,12 +41,13 @@ def insert_into_tree(tree, branches, value):
 
 
 def read_index_file(index_file):
-    """Parse a tar-compatible index file, and transform it into
-    a tree-like structure, implemented using dicts.
+    """Parse a tar-compatible index file, and transform it into a tree-like
+    structure, implemented using dicts and a ``FileAttributes`` named tuple.
 
     The file path ``/usr/bin/python`` with size 66736 bytes will be encoded as
-    ``{'usr': {'bin': {'python': 66736}}}``, and the empty folder path
-    ``/var/log/empty`` will be encoded as ``{'var': {'log': {'empty': {}}}}``.
+    ``{'usr': {'bin': {'python': <size=66736, is_symlink=False>}}}``, and the
+    empty folder path ``/var/log/empty`` will be encoded as ``{'var': {'log':
+    {'empty': {}}}}``.
 
     :arg index_file: a file object that points to the tar-compatible index file
     """
@@ -57,11 +62,15 @@ def read_index_file(index_file):
         path = path.split('/')
         if path[-1]:
             # not a directory
-            node = {'size': int(size),
-                    'is_symlink': line[0] == 'l'}
+            is_symlink = line[0] == 'l'
+            leaf = FileAttributes(size=int(size), is_symlink=is_symlink)
+            if is_symlink:
+                # remove the pointed-to part of the link
+                path[-1] = re.findall(r'.* ->', path[-1])[0][:-3]
+            print(leaf)
         else:
-            node = {}
-        insert_into_tree(fs_tree, path, node)
+            leaf = {}
+        insert_into_tree(fs_tree, path, leaf)
 
     return fs_tree
 
