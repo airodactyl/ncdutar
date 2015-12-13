@@ -58,6 +58,7 @@ def read_index_file(index_file):
 
     return fs_tree
 
+
 def main():
     """The main entry point of the program.
     """
@@ -79,6 +80,7 @@ def main():
                 'timestamp': int(time.time())}
 
     return [1, 0, metadata, fs_objects]
+
 
 if __name__ == '__main__':
     main()
