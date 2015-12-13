@@ -51,10 +51,17 @@ def read_index_file(index_file):
     for line in index_file:
         if not line:
             continue
+        line = line.strip()
         _, _, size, _, _, path = line.split(maxsplit=5)
         size = int(size)
         path = path.split('/')
-        insert_into_tree(fs_tree, path, size if path[-1] else {})
+        if path[-1]:
+            # not a directory
+            node = {'size': int(size),
+                    'is_symlink': line[0] == 'l'}
+        else:
+            node = {}
+        insert_into_tree(fs_tree, path, node)
 
     return fs_tree
 
