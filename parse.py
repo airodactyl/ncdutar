@@ -3,7 +3,7 @@ import time, json, sys
 int_type = type(1)
 
 def generateTree(filename):
-    lines = open(filename).read().split('\n') 
+    lines = open(filename).read().split('\n')
     tree = {}
 
     j = 0
@@ -25,7 +25,7 @@ def generateTree(filename):
             if path[-1]:
                 node[path[-1]] = size
         except:
-            print(j, line, line.split(maxsplit=5)) 
+            print(j, line, line.split(maxsplit=5))
             break
 
         if j % 1000 == 0:
