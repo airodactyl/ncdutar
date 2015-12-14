@@ -3,6 +3,8 @@
 
 Generates index files from tar-compatible archives and allows easy browsing
 using ncdu.  Requires ncdu and GNU tar.
+
+By default, ncdutar creates index files at `[archive filename].index`.
 """
 
 import argparse
@@ -112,12 +114,18 @@ def main():
     """The main entry point of the program.
     """
     args = parser.parse_args()
+
+    if not os.path.isfile(args.archive_file):
+        parser.error("Not a file: {}".format(args.archive_file))
     index_filename = os.path.abspath(args.archive_file + '.index')
 
     if not os.path.isfile(index_filename):
         tar_args = ['tar', '--index-file', index_filename, '-tvf',
                     args.archive_file]
-        call(tar_args)
+        call_result = call(tar_args)
+        if call_result > 0:
+            os.remove(index_filename)
+            exit(call_result)
 
     with open(index_filename) as index_file:
         tree = read_index_file(index_file)
