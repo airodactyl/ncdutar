@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """ncdutar
+=======
 
 Generates index files from tar-compatible archives and allows easy browsing
 using ncdu.  Requires ncdu and GNU tar.
