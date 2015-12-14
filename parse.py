@@ -83,7 +83,9 @@ def flatten_tree(tree):
     fs_objects = [{"name": "/"}]
 
     def recurse(node, dir_list):
-        """Walk the tree recursively."""
+        """Walk the tree recursively, creating a json object for each file and
+        a list for each folder as per the ncdu export format.
+        """
         for key in node:
             if type(node[key]) is FileAttributes:
                 dir_list.append({'name': key,
@@ -91,8 +93,9 @@ def flatten_tree(tree):
                                  'dsize': node[key].size,
                                  'notreg': node[key].is_symlink})
             else:
-                dir_list.append([{'name': key}])
-                recurse(node[key], dir_list[-1])
+                inner_dir_list = [{'name': key}]
+                dir_list.append(inner_dir_list)
+                recurse(node[key], inner_dir_list)
 
     recurse(tree, fs_objects)
 
