@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """ncdutar
+
+Generates index files from tar-compatible archives and allows easy browsing
+using ncdu.  Requires ncdu and GNU tar.
 """
 
 import argparse
@@ -12,7 +15,8 @@ from subprocess import call, Popen, PIPE
 
 _version = 0.1
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(description=globals()['__doc__'],
+                                 formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument('archive_file', help='path to the archive file')
 
 FileAttributes = namedtuple('FileAttributes', ['size', 'is_symlink'])
