@@ -16,6 +16,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('archive_file', help='path to the archive file')
 
 FileAttributes = namedtuple('FileAttributes', ['size', 'is_symlink'])
+NcduExport = namedtuple('NcduExport', ['majorver', 'minorver', 'metadata',
+                                       'directory'])
 
 
 def insert_into_tree(tree, branches, value):
@@ -121,7 +123,12 @@ def main():
                 'progver': _version,
                 'timestamp': int(time.time())}
 
-    ncdu_input = json.dumps([1, 0, metadata, fs_objects])
+    ncdu_object = NcduExport(majorver=1,
+                             minorver=0,
+                             metadata=metadata,
+                             directory=fs_objects)
+
+    ncdu_input = json.dumps(ncdu_object)
 
     Popen(['ncdu', '-f', '-'], stdin=PIPE).communicate(ncdu_input.encode())
 
