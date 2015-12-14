@@ -67,12 +67,37 @@ def read_index_file(index_file):
             if is_symlink:
                 # remove the pointed-to part of the link
                 path[-1] = re.findall(r'.* ->', path[-1])[0][:-3]
-            print(leaf)
         else:
             leaf = {}
         insert_into_tree(fs_tree, path, leaf)
 
     return fs_tree
+
+
+def flatten_tree(tree):
+    """Convert the recursive dict tree structure into a list of filesystem
+    objects, one for each node.  The output is a list compatible with the ncdu
+    export format.
+
+    :arg tree: a dict of dicts of FileAttributes representing the file system.
+    """
+    fs_objects = [{"name": "/"}]
+
+    def recurse(node, dir_list):
+        """Walk the tree recursively."""
+        for key in node:
+            if type(node[key]) is FileAttributes:
+                dir_list.append({'name': key,
+                                 'asize': node[key].size,
+                                 'dsize': node[key].size,
+                                 'notreg': node[key].is_symlink})
+            else:
+                dir_list.append([{'name': key}])
+                recurse(node[key], dir_list[-1])
+
+    recurse(tree, fs_objects)
+
+    return fs_objects
 
 
 def main():
@@ -88,14 +113,13 @@ def main():
 
     with open(index_filename) as index_file:
         tree = read_index_file(index_file)
-    pprint(tree)
-    fs_objects = []
+    fs_objects = flatten_tree(tree)
 
     metadata = {'progname': 'ncdutar',
                 'progver': _version,
                 'timestamp': int(time.time())}
 
-    return [1, 0, metadata, fs_objects]
+    pprint([1, 0, metadata, fs_objects])
 
 
 if __name__ == '__main__':
