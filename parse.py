@@ -3,13 +3,12 @@
 """
 
 import argparse
+import json
 import os
 import re
-import subprocess
 import time
 from collections import namedtuple
-
-from pprint import pprint
+from subprocess import call, Popen, PIPE
 
 _version = 0.1
 
@@ -109,7 +108,7 @@ def main():
     if not os.path.isfile(index_filename):
         tar_args = ['tar', '--index-file', index_filename, '-tvf',
                     args.archive_file]
-        subprocess.call(tar_args)
+        call(tar_args)
 
     with open(index_filename) as index_file:
         tree = read_index_file(index_file)
@@ -119,7 +118,9 @@ def main():
                 'progver': _version,
                 'timestamp': int(time.time())}
 
-    pprint([1, 0, metadata, fs_objects])
+    ncdu_input = json.dumps([1, 0, metadata, fs_objects])
+
+    Popen(['ncdu', '-f', '-'], stdin=PIPE).communicate(ncdu_input.encode())
 
 
 if __name__ == '__main__':
