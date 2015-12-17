@@ -80,6 +80,7 @@ def read_index_file(index_file):
                     if match:
                         path[i] = match[0][:-len(symlink_part)]
                         path = path[:i+1]
+                        break
         else:
             path = path[:-1]
             leaf = {}
