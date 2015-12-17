@@ -73,9 +73,15 @@ def read_index_file(index_file):
             is_symlink = line[0] == 'l'
             leaf = FileAttributes(size=int(size), is_symlink=is_symlink)
             if is_symlink:
-                # remove the pointed-to part of the link
-                path[-1] = re.findall(r'.* ->', path[-1])[0][:-3]
+                # walk the path backwards to find the part with symlink
+                for i in reversed(range(len(path))):
+                    symlink_part = r' ->'
+                    match = re.findall(r'.*' + symlink_part, path[i])
+                    if match:
+                        path[i] = match[0][:-len(symlink_part)]
+                        path = path[:i+1]
         else:
+            path = path[:-1]
             leaf = {}
         insert_into_tree(fs_tree, path, leaf)
 
