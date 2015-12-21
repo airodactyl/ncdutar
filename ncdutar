@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""ncdutar
+=======
+
+Generates index files from tar-compatible archives and allows easy browsing
+using ncdu.  Requires ncdu and GNU tar.
+
+By default, ncdutar creates index files at `[archive filename].index`.
+"""
+
+import argparse
+import json
+import os
+import re
+import time
+from collections import namedtuple
+from subprocess import call, Popen, PIPE
+
+_version = 0.1
+
+parser = argparse.ArgumentParser(description=globals()['__doc__'],
+                                 formatter_class=argparse.RawTextHelpFormatter)
+parser.add_argument('archive_file', help='path to the archive file')
+
+FileAttributes = namedtuple('FileAttributes', ['size', 'is_symlink'])
+NcduExport = namedtuple('NcduExport', ['majorver', 'minorver', 'metadata',
+                                       'directory'])
+
+
+def insert_into_tree(tree, branches, value):
+    """Given a dict tree with a recursive structure such as ``{'a': {'b':
+    {}}}``, insert a value at a specific branch in the tree, creating nodes if
+    they do not already exist.
+
+    :arg tree: a dict of dicts representing a tree with arbitrary-valued leaves.
+
+    :arg branches: a list of nodes to take when walking the tree.
+
+    :arg value: the value of the leaf to insert after walking the tree.
+    """
+    node = tree
+    for i in range(len(branches) - 1):
+        try:
+            node = node[branches[i]]
+        except KeyError:
+            node[branches[i]] = {}
+            node = node[branches[i]]
+    node[branches[-1]] = value
+
+
+def read_index_file(index_file):
+    """Parse a tar-compatible index file, and transform it into a tree-like
+    structure, implemented using dicts and a ``FileAttributes`` named tuple.
+
+    The file path ``/usr/bin/python`` with size 66736 bytes will be encoded as
+    ``{'usr': {'bin': {'python': <size=66736, is_symlink=False>}}}``, and the
+    empty folder path ``/var/log/empty`` will be encoded as ``{'var': {'log':
+    {'empty': {}}}}``.
+
+    :arg index_file: a file object that points to the tar-compatible index file
+    """
+    fs_tree = {}
+
+    for line in index_file:
+        if not line:
+            continue
+        line = line.strip()
+        _, _, size, _, _, path = line.split(maxsplit=5)
+        size = int(size)
+        path = path.split('/')
+        if path[-1]:
+            # not a directory
+            is_symlink = line[0] == 'l'
+            leaf = FileAttributes(size=int(size), is_symlink=is_symlink)
+            if is_symlink:
+                # walk the path backwards to find the part with symlink
+                for i in reversed(range(len(path))):
+                    symlink_part = r' ->'
+                    match = re.findall(r'.*' + symlink_part, path[i])
+                    if match:
+                        path[i] = match[0][:-len(symlink_part)]
+                        path = path[:i+1]
+                        break
+        else:
+            path = path[:-1]
+            leaf = {}
+        insert_into_tree(fs_tree, path, leaf)
+
+    return fs_tree
+
+
+def flatten_tree(tree):
+    """Convert the recursive dict tree structure into a list of filesystem
+    objects, one for each node.  The output is a list compatible with the ncdu
+    export format.
+
+    :arg tree: a dict of dicts of FileAttributes representing the file system.
+    """
+    fs_objects = [{"name": "/"}]
+
+    def recurse(node, dir_list):
+        """Walk the tree recursively, creating a json object for each file and
+        a list for each folder as per the ncdu export format.
+        """
+        for key in node:
+            if type(node[key]) is FileAttributes:
+                dir_list.append({'name': key,
+                                 'asize': node[key].size,
+                                 'dsize': node[key].size,
+                                 'notreg': node[key].is_symlink})
+            else:
+                inner_dir_list = [{'name': key}]
+                dir_list.append(inner_dir_list)
+                recurse(node[key], inner_dir_list)
+
+    recurse(tree, fs_objects)
+
+    return fs_objects
+
+
+def main():
+    """The main entry point of the program.
+    """
+    args = parser.parse_args()
+
+    if not os.path.isfile(args.archive_file):
+        parser.error("Not a file: {}".format(args.archive_file))
+    index_filename = os.path.abspath(args.archive_file + '.index')
+
+    if not os.path.isfile(index_filename):
+        tar_args = ['tar', '--index-file', index_filename, '-tvf',
+                    args.archive_file]
+        call_result = call(tar_args)
+        if call_result > 0:
+            os.remove(index_filename)
+            exit(call_result)
+
+    with open(index_filename) as index_file:
+        tree = read_index_file(index_file)
+    fs_objects = flatten_tree(tree)
+
+    metadata = {'progname': 'ncdutar',
+                'progver': _version,
+                'timestamp': int(time.time())}
+
+    ncdu_object = NcduExport(majorver=1,
+                             minorver=0,
+                             metadata=metadata,
+                             directory=fs_objects)
+
+    ncdu_input = json.dumps(ncdu_object)
+
+    Popen(['ncdu', '-f', '-'], stdin=PIPE).communicate(ncdu_input.encode())
+
+
+if __name__ == '__main__':
+    main()
